@@ -3,7 +3,7 @@ from typing import Any, Dict
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from memory_manager import MemoryManager
+from src.memory_manager import MemoryManager
 
 app = FastAPI()
 manager = MemoryManager()

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from memory_store import MemoryStore
+from src.memory_store import MemoryStore
 
 
 class MemoryManager:

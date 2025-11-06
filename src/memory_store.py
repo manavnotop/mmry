@@ -9,9 +9,9 @@ COLLECTION_NAME = "mmry"
 
 
 class MemoryStore:
-    def __init__(self, url="http://localhost:6333") -> None:
+    def __init__(self, url="http://localhost:6333", embed_model="all-MiniLM-L6-v2") -> None:
         self.client = QdrantClient(url=url)
-        self.embedder = SentenceTransformer()
+        self.embedder = SentenceTransformer(embed_model)
         self.ensure_collection()
 
     def ensure_collection(self):
@@ -27,7 +27,7 @@ class MemoryStore:
             )
 
     def embed(self, texts: List[str]) -> List[List[float]]:
-        self.embedder.encode(texts).tolist()
+        return self.embedder.encode(texts).tolist()
 
     def add_memory(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         vector: list[float] = self.embed([text])[0]
@@ -44,7 +44,7 @@ class MemoryStore:
     def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
         vector: list[float] = self.embed([query])[0]
         results = self.client.search(COLLECTION_NAME, query_vector=vector, limit=top_k)
-        return [{"id": r.id, "scrore": r.score, "payload": r.payload} for r in results]
+        return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]
 
     def update_memory(self, memory_id: str, new_text: str) -> None:
         vector: list[float] = self.embed([new_text])[0]
