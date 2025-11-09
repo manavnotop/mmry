@@ -1,6 +1,8 @@
 from typing import Any, Dict, List, Optional
 
 from mmry.base.vectordb_base import VectorDBBase
+from mmry.utils.decay import apply_memory_decay
+from mmry.utils.scoring import rerank_results
 from mmry.vector_store.qdrant import Qdrant
 
 
@@ -28,7 +30,10 @@ class MemoryManager:
         return {"status": "created", "id": mem_id, "text": text}
 
     def query_memory(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
-        return self.store.search(query, top_k)
+        results = self.store.search(query, top_k)
+        decayed = [apply_memory_decay(r) for r in results]
+        reranked = rerank_results(decayed)
+        return reranked
 
     def update_memory(self, memory_id: str, new_text: str) -> None:
         return self.store.update_memory(memory_id, new_text)

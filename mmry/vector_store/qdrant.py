@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -39,7 +40,11 @@ class Qdrant(VectorDBBase):
     def add_memory(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         vector = self.embed([text])[0]
         memory_id = str(uuid.uuid4())
-        payload = {"text": text}
+        payload = {
+            "text": text,
+            "created_at": datetime.utcnow().isoformat(),
+            "importance": 1.0,
+        }
         if metadata:
             payload.update(metadata)
         self.client.upsert(
