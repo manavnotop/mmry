@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 def hybrid_score(
     similarity: float,
-    created_at: str | datetime.datetime,
+    created_at: str | datetime.datetime | None,
     importance: float = 1.0,
     alpha: float = 0.7,
     beta: float = 0.2,
@@ -16,12 +16,20 @@ def hybrid_score(
     Compute hybrid score combining semantic similarity, recency, and importance.
     Higher is better.
     """
-    if isinstance(created_at, str):
-        created_at = datetime.datetime.fromisoformat(created_at)
+    if created_at is None:
+        # If created_at is missing, skip recency weighting
+        recency_weight = 0.0
+    else:
+        if isinstance(created_at, str):
+            created_at = datetime.datetime.fromisoformat(created_at)
+        elif isinstance(created_at, datetime.datetime):
+            # Ensure timezone-aware comparison
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=datetime.timezone.utc)
 
-    now = datetime.datetime.now()
-    delta_hours = (now - created_at).total_seconds / 3600
-    recency_weight = math.exp(-decay_rate * delta_hours)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        delta_hours = (now - created_at).total_seconds() / 3600
+        recency_weight = math.exp(-decay_rate * delta_hours)
 
     final_score = alpha * similarity + beta * recency_weight + gamma * importance
     return round(final_score, 6)

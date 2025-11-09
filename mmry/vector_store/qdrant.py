@@ -19,7 +19,7 @@ class Qdrant(VectorDBBase):
         self.url = url
         self.collection = collection_name
         self.client = QdrantClient(url=url)
-        self.embedder = SentenceTransformer()
+        self.embedder = SentenceTransformer(embed_model)
         self.ensure_collection()
 
     def ensure_collection(self):
@@ -42,7 +42,7 @@ class Qdrant(VectorDBBase):
         memory_id = str(uuid.uuid4())
         payload = {
             "text": text,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.datetime.now(datetime.UTC) ,
             "importance": 1.0,
         }
         if metadata:
@@ -62,11 +62,22 @@ class Qdrant(VectorDBBase):
 
     def update_memory(self, memory_id: str, new_text: str) -> None:
         vector = self.embed([new_text])[0]
+        # Retrieve existing payload to preserve created_at and importance
+        try:
+            existing = self.client.retrieve(
+                collection_name=self.collection,
+                ids=[memory_id]
+            )[0]
+            payload = existing.payload.copy() if existing.payload else {}
+        except Exception:
+            payload = {}
+        
+        payload["text"] = new_text
         self.client.upsert(
             collection_name=self.collection,
             points=[
                 rest.PointStruct(
-                    id=memory_id, vector=vector, payload={"text": new_text}
+                    id=memory_id, vector=vector, payload=payload
                 )
             ],
         )
