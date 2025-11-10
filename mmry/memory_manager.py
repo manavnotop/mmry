@@ -21,26 +21,35 @@ class MemoryManager:
     def create_memory(
         self, text: str, metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        summarized = text
-        if self.summarizer:
-            summarized = self.summarizer.summarize(text)
+        """Summarize → Check Similarity → Merge or Add"""
 
+        summarized = self.summarizer.summarize(text) if self.summarizer else text
         metadata = metadata or {}
         metadata["raw_text"] = text
         metadata["summary"] = summarized
 
-        similar = self.store.search(text, top_k=1)
+        similar = self.store.search(summarized, top_k=1)
+
         if similar and similar[0]["score"] > self.threshold:
+            old = similar[0]["payload"]["text"]
             mem_id = similar[0]["id"]
-            self.store.update_memory(mem_id, text)
+
+            if self.merger:
+                merged_text = self.merger.merge_memories(old, summarized)
+            else:
+                merged_text = summarized
+
+            self.store.update_memory(mem_id, merged_text)
             return {
-                "status": "updated",
+                "status": "merged",
                 "id": mem_id,
-                "old": similar[0]["payload"],
-                "new_text": text,
+                "old": old,
+                "new": summarized,
+                "merged": merged_text,
             }
-        mem_id = self.store.add_memory(text, metadata)
-        return {"status": "created", "id": mem_id, "text": text}
+
+        mem_id = self.store.add_memory(summarized, metadata)
+        return {"status": "created", "id": mem_id, "summary": summarized}
 
     def query_memory(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
         results = self.store.search(query, top_k)

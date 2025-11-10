@@ -4,7 +4,7 @@ from mmry.base.llm_base import LLMBase
 
 
 class OpenRouterSummarizer(LLMBase):
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str, model: str = "openai/gpt-oss-safeguard-20b"):
         self.api_key = api_key
         self.model = model
         self.url = "https://openrouter.ai/api/v1/chat/completions"
@@ -20,7 +20,7 @@ class OpenRouterSummarizer(LLMBase):
         data = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 60,
+            # "max_tokens": 60,
             "temperature": 0.2,
         }
 
