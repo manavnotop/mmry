@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from mmry.base.vectordb_base import VectorDBBase
+from mmry.llms.openrouter_summariser import OpenRouterSummarizer
 from mmry.utils.decay import apply_memory_decay
 from mmry.utils.scoring import rerank_results
 from mmry.vector_store.qdrant import Qdrant
@@ -8,14 +9,26 @@ from mmry.vector_store.qdrant import Qdrant
 
 class MemoryManager:
     def __init__(
-        self, db: VectorDBBase | None = None, similarity_threshold: float = 0.8
+        self,
+        db: VectorDBBase | None = None,
+        similarity_threshold: float = 0.8,
+        summarizer: Optional[OpenRouterSummarizer] = None,
     ):
         self.store = db or Qdrant()
         self.threshold = similarity_threshold
+        self.summarizer = summarizer
 
     def create_memory(
         self, text: str, metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
+        summarized = text
+        if self.summarizer:
+            summarized = self.summarizer.summarize(text)
+
+        metadata = metadata or {}
+        metadata["raw_text"] = text
+        metadata["summary"] = summarized
+
         similar = self.store.search(text, top_k=1)
         if similar and similar[0]["score"] > self.threshold:
             mem_id = similar[0]["id"]

@@ -42,7 +42,7 @@ class Qdrant(VectorDBBase):
         memory_id = str(uuid.uuid4())
         payload = {
             "text": text,
-            "created_at": datetime.datetime.now(datetime.UTC) ,
+            "created_at": datetime.datetime.now(datetime.UTC),
             "importance": 1.0,
         }
         if metadata:
@@ -65,21 +65,16 @@ class Qdrant(VectorDBBase):
         # Retrieve existing payload to preserve created_at and importance
         try:
             existing = self.client.retrieve(
-                collection_name=self.collection,
-                ids=[memory_id]
+                collection_name=self.collection, ids=[memory_id]
             )[0]
             payload = existing.payload.copy() if existing.payload else {}
         except Exception:
             payload = {}
-        
+
         payload["text"] = new_text
         self.client.upsert(
             collection_name=self.collection,
-            points=[
-                rest.PointStruct(
-                    id=memory_id, vector=vector, payload=payload
-                )
-            ],
+            points=[rest.PointStruct(id=memory_id, vector=vector, payload=payload)],
         )
 
     def get_all(self) -> List[Dict[str, Any]]:

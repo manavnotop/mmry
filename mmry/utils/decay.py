@@ -3,7 +3,9 @@ import math
 from typing import Any, Dict
 
 
-def compute_decay_factor(created_at: str | datetime.datetime, decay_rate: float = 0.01) -> float:
+def compute_decay_factor(
+    created_at: str | datetime.datetime, decay_rate: float = 0.01
+) -> float:
     """
     Returns a decay multiplier (0–1) based on how old a memory is.
     New memories ≈ 1.0, old ones decay toward 0.
@@ -16,7 +18,7 @@ def compute_decay_factor(created_at: str | datetime.datetime, decay_rate: float 
             created = created.replace(tzinfo=datetime.timezone.utc)
     else:
         return 1.0  # Default to no decay if invalid type
-    
+
     now = datetime.datetime.now(datetime.timezone.utc)
     delta_hours = (now - created).total_seconds() / 3600
     return math.exp(-decay_rate * delta_hours)
