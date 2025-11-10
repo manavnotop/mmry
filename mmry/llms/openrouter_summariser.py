@@ -20,7 +20,7 @@ class OpenRouterSummarizer(LLMBase):
         data = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            # "max_tokens": 60,
+            "max_tokens": 128,
             "temperature": 0.2,
         }
 

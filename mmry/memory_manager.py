@@ -55,7 +55,17 @@ class MemoryManager:
         results = self.store.search(query, top_k)
         decayed = [apply_memory_decay(r) for r in results]
         reranked = rerank_results(decayed)
-        return reranked
+        memories = [r["payload"]["text"] for r in reranked]
+
+        context_summary = None
+        if self.context_builder:
+            context_summary = self.context_builder.build_context(memories)
+
+        return {
+            "query": query,
+            "context_summary": context_summary,
+            "memories": reranked,
+        }
 
     def update_memory(self, memory_id: str, new_text: str) -> None:
         return self.store.update_memory(memory_id, new_text)
