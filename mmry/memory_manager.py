@@ -1,6 +1,9 @@
+import os
 from typing import Any, Dict, List, Optional
 
 from mmry.base.vectordb_base import VectorDBBase
+from mmry.llms.openrouter_context_builder import OpenRouterContextBuilder
+from mmry.llms.openrouter_merger import OpenRouterMerger
 from mmry.llms.openrouter_summariser import OpenRouterSummarizer
 from mmry.utils.decay import apply_memory_decay
 from mmry.utils.health import MemoryHealth
@@ -14,13 +17,32 @@ class MemoryManager:
         self,
         db: VectorDBBase | None = None,
         similarity_threshold: float = 0.8,
+        api_key: Optional[str] = None,
         summarizer: Optional[OpenRouterSummarizer] = None,
+        merger: Optional[OpenRouterMerger] = None,
+        context_builder: Optional[OpenRouterContextBuilder] = None,
         log_path: str = "memory_events.jsonl",
     ):
         self.store = db or Qdrant()
         self.threshold = similarity_threshold
-        self.summarizer = summarizer
         self.logger = MemoryLogger(log_path)
+
+        # Get API key from parameter, environment, or None
+        api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+
+        # Initialize LLM components if api_key is available
+        # Allow explicit components to override auto-initialization
+        if api_key:
+            self.summarizer = summarizer or OpenRouterSummarizer(api_key=api_key)
+            self.merger = merger or OpenRouterMerger(api_key=api_key)
+            self.context_builder = context_builder or OpenRouterContextBuilder(
+                api_key=api_key
+            )
+        else:
+            # If no API key, use provided components or None
+            self.summarizer = summarizer
+            self.merger = merger
+            self.context_builder = context_builder
 
     def create_memory(
         self, text: str, metadata: Optional[Dict[str, Any]] = None
