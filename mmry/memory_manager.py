@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from mmry.base.vectordb_base import VectorDBBase
@@ -45,14 +46,44 @@ class MemoryManager:
             self.context_builder = context_builder
 
     def create_memory(
-        self, text: str, metadata: Optional[Dict[str, Any]] = None
+        self,
+        text: str | List[Dict[str, str]],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Summarize → Check Similarity → Merge or Add"""
+        """
+        Create a memory from text or conversation.
 
+        Args:
+            text: Either a string or a list of conversation dicts with 'role' and 'content' keys.
+            metadata: Optional metadata to attach to the memory.
+
+        Returns:
+            Dict with status, id, and summary information.
+        """
         self.logger.log("create_request", {"text": text})
-        summarized = self.summarizer.summarize(text) if self.summarizer else text
+
+        # Handle summarization for both text and conversations
+        if self.summarizer:
+            summarized = self.summarizer.summarize(text)
+            # Clean the summary to remove markdown and formatting for better searchability
+            summarized = self._clean_summary(summarized)
+        else:
+            # If no summarizer, convert conversation to string if needed
+            if isinstance(text, list):
+                # Format conversation as a simple string representation
+                conversation_str = "\n".join(
+                    [
+                        f"{msg.get('role', 'unknown')}: {msg.get('content', '')}"
+                        for msg in text
+                    ]
+                )
+                summarized = conversation_str
+            else:
+                summarized = text
+
         metadata = metadata or {}
-        metadata["raw_text"] = text
+        metadata["raw_text"] = text if isinstance(text, str) else str(text)
+        metadata["raw_conversation"] = text if isinstance(text, list) else None
         metadata["summary"] = summarized
 
         similar = self.store.search(summarized, top_k=1)
@@ -113,3 +144,34 @@ class MemoryManager:
         stats = health.summary()
         self.logger.log("health_snapshot", stats)
         return stats
+
+    def _clean_summary(self, summary: str) -> str:
+        """
+        Clean summary text by removing markdown formatting and converting
+        numbered lists to simple sentences for better vector search similarity.
+        """
+        # Remove markdown bold/italic
+        summary = re.sub(r"\*\*([^*]+)\*\*", r"\1", summary)
+        summary = re.sub(r"\*([^*]+)\*", r"\1", summary)
+        summary = re.sub(r"__([^_]+)__", r"\1", summary)
+        summary = re.sub(r"_([^_]+)_", r"\1", summary)
+
+        # Convert numbered/bulleted lists to sentences
+        # Match patterns like "1. text" or "- text" or "• text"
+        lines = summary.split("\n")
+        cleaned_lines = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # Remove list markers (1., 2., -, •, etc.)
+            line = re.sub(r"^\d+\.\s*", "", line)
+            line = re.sub(r"^[-•]\s*", "", line)
+            cleaned_lines.append(line)
+
+        # Join with periods and spaces for better semantic search
+        cleaned = ". ".join(cleaned_lines)
+        # Remove extra whitespace
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+        return cleaned
