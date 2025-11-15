@@ -37,7 +37,7 @@ class Qdrant(VectorDBBase):
     def embed(self, texts: List[str]) -> List[List[float]]:
         return self.embedder.encode(texts).tolist()
 
-    def add_memory(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def add_memory(self, text: str, metadata: Optional[Dict[str, Any]] = None, user_id: Optional[str] = None) -> str:
         vector = self.embed([text])[0]
         memory_id = str(uuid.uuid4())
         payload = {
@@ -45,6 +45,8 @@ class Qdrant(VectorDBBase):
             "created_at": datetime.datetime.now(datetime.UTC),
             "importance": 1.0,
         }
+        if user_id:
+            payload["user_id"] = user_id
         if metadata:
             payload.update(metadata)
         self.client.upsert(
@@ -53,14 +55,36 @@ class Qdrant(VectorDBBase):
         )
         return memory_id
 
-    def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    def search(self, query: str, top_k: int = 3, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         vector = self.embed([query])[0]
-        results = self.client.search(
-            collection_name=self.collection, query_vector=vector, limit=top_k
-        )
+
+        # Prepare filtering conditions
+        if user_id:
+            # Create a filter to only return memories for the specified user
+            search_filter = rest.Filter(
+                must=[
+                    rest.FieldCondition(
+                        key="user_id",
+                        match=rest.MatchValue(value=user_id)
+                    )
+                ]
+            )
+            results = self.client.search(
+                collection_name=self.collection,
+                query_vector=vector,
+                limit=top_k,
+                query_filter=search_filter
+            )
+        else:
+            # For backward compatibility, search all memories if no user_id is provided
+            results = self.client.search(
+                collection_name=self.collection,
+                query_vector=vector,
+                limit=top_k
+            )
         return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]
 
-    def update_memory(self, memory_id: str, new_text: str) -> None:
+    def update_memory(self, memory_id: str, new_text: str, user_id: Optional[str] = None) -> None:
         vector = self.embed([new_text])[0]
         # Retrieve existing payload to preserve created_at and importance
         try:
@@ -72,11 +96,31 @@ class Qdrant(VectorDBBase):
             payload = {}
 
         payload["text"] = new_text
+        # If user_id is provided, add it to the payload to ensure consistency
+        if user_id:
+            payload["user_id"] = user_id
         self.client.upsert(
             collection_name=self.collection,
             points=[rest.PointStruct(id=memory_id, vector=vector, payload=payload)],
         )
 
-    def get_all(self) -> List[Dict[str, Any]]:
-        records = self.client.scroll(collection_name=self.collection, limit=100)[0]
+    def get_all(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        # Prepare filtering conditions
+        if user_id:
+            search_filter = rest.Filter(
+                must=[
+                    rest.FieldCondition(
+                        key="user_id",
+                        match=rest.MatchValue(value=user_id)
+                    )
+                ]
+            )
+            records = self.client.scroll(
+                collection_name=self.collection,
+                limit=100,
+                scroll_filter=search_filter
+            )[0]
+        else:
+            # For backward compatibility, return all memories if no user_id is provided
+            records = self.client.scroll(collection_name=self.collection, limit=100)[0]
         return [{"id": r.id, "payload": r.payload} for r in records]

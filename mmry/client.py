@@ -50,6 +50,7 @@ class MemoryClient:
         self,
         text: Union[str, List[Dict[str, str]]],
         metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
     ):
         """
         Create a memory from text or conversation.
@@ -57,40 +58,58 @@ class MemoryClient:
         Args:
             text: Either a string or a list of conversation dicts with 'role' and 'content' keys.
             metadata: Optional metadata to attach to the memory.
+            user_id: Optional user identifier to associate with this memory.
 
         Returns:
             Dict with status, id, and summary information.
         """
-        return self.manager.create_memory(text, metadata)
+        return self.manager.create_memory(text, metadata, user_id)
 
-    def query_memory(self, query: str, top_k: int = 3):
+    def query_memory(self, query: str, top_k: int = 3, user_id: Optional[str] = None):
         """
         Query memories based on a text query.
 
         Args:
             query: Text to search for in memories
             top_k: Number of results to return
+            user_id: Optional user identifier to filter memories
 
         Returns:
             List of matching memories with context summary
         """
-        return self.manager.query_memory(query, top_k)
+        return self.manager.query_memory(query, top_k, user_id)
 
-    def update_memory(self, memory_id: str, new_text: str):
+    def update_memory(self, memory_id: str, new_text: str, user_id: Optional[str] = None):
         """
         Update an existing memory with new text.
 
         Args:
             memory_id: ID of the memory to update
             new_text: New text to replace the existing memory
+            user_id: Optional user identifier to ensure correct user's memory is updated
         """
-        return self.manager.update_memory(memory_id, new_text)
+        return self.manager.update_memory(memory_id, new_text, user_id)
 
-    def list_all(self):
+    def list_all(self, user_id: Optional[str] = None):
         """
         List all memories in the store.
+
+        Args:
+            user_id: Optional user identifier to filter memories
 
         Returns:
             List of all memories
         """
-        return self.manager.list_all()
+        return self.manager.list_all(user_id)
+
+    def get_health(self, user_id: Optional[str] = None):
+        """
+        Get health metrics for the memory system.
+
+        Args:
+            user_id: Optional user identifier to get health stats for specific user
+
+        Returns:
+            Health metrics dictionary
+        """
+        return self.manager.get_health(user_id)

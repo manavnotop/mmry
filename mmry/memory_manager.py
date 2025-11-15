@@ -77,6 +77,7 @@ class MemoryManager:
         self,
         text: str | List[Dict[str, str]],
         metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Create a memory from text or conversation.
@@ -84,11 +85,12 @@ class MemoryManager:
         Args:
             text: Either a string or a list of conversation dicts with 'role' and 'content' keys.
             metadata: Optional metadata to attach to the memory.
+            user_id: Optional user identifier to associate with this memory.
 
         Returns:
             Dict with status, id, and summary information.
         """
-        self.logger.log("create_request", {"text": text})
+        self.logger.log("create_request", {"text": text, "user_id": user_id})
 
         # Handle summarization for both text and conversations
         if self.summarizer:
@@ -99,7 +101,7 @@ class MemoryManager:
             except Exception as e:
                 self.logger.log(
                     "summarizer_error",
-                    {"error": str(e), "text_type": type(text).__name__},
+                    {"error": str(e), "text_type": type(text).__name__, "user_id": user_id},
                 )
                 # Fallback to basic text processing if summarizer fails
                 if isinstance(text, list):
@@ -131,7 +133,7 @@ class MemoryManager:
         metadata["raw_conversation"] = text if isinstance(text, list) else None
         metadata["summary"] = summarized
 
-        similar = self.store.search(summarized, top_k=1)
+        similar = self.store.search(summarized, top_k=1, user_id=user_id)
 
         if similar and similar[0]["score"] > self.threshold:
             old = similar[0]["payload"]["text"]
@@ -141,13 +143,13 @@ class MemoryManager:
                 try:
                     merged_text = self.merger.merge_memories(old, summarized)
                 except Exception as e:
-                    self.logger.log("merger_error", {"error": str(e)})
+                    self.logger.log("merger_error", {"error": str(e), "user_id": user_id})
                     # Fallback to using the new summary if merger fails
                     merged_text = summarized
             else:
                 merged_text = summarized
 
-            self.store.update_memory(mem_id, merged_text)
+            self.store.update_memory(mem_id, merged_text, user_id=user_id)
             return {
                 "status": "merged",
                 "id": mem_id,
@@ -156,15 +158,15 @@ class MemoryManager:
                 "merged": merged_text,
             }
 
-        mem_id = self.store.add_memory(summarized, metadata)
+        mem_id = self.store.add_memory(summarized, metadata, user_id=user_id)
         result = {"status": "created", "id": mem_id, "summary": summarized}
         self.logger.log("create_result", result)
         return result
 
-    def query_memory(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    def query_memory(self, query: str, top_k: int = 3, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Query memories based on a text query."""
-        self.logger.log("query_request", {"query": query})
-        results = self.store.search(query, top_k)
+        self.logger.log("query_request", {"query": query, "user_id": user_id})
+        results = self.store.search(query, top_k, user_id=user_id)
         decayed = [apply_memory_decay(r) for r in results]
         reranked = rerank_results(decayed)
         memories = [r["payload"]["text"] for r in reranked]
@@ -174,7 +176,7 @@ class MemoryManager:
             try:
                 context_summary = self.context_builder.build_context(memories)
             except Exception as e:
-                self.logger.log("context_builder_error", {"error": str(e)})
+                self.logger.log("context_builder_error", {"error": str(e), "user_id": user_id})
                 # Fallback to joining memories if context builder fails
                 context_summary = ". ".join(memories[:3])  # Use top 3 memories
 
@@ -184,24 +186,24 @@ class MemoryManager:
             "memories": reranked,
         }
         self.logger.log(
-            "query_result", {"query": query, "top_k": len(result["memories"])}
+            "query_result", {"query": query, "top_k": len(result["memories"]), "user_id": user_id}
         )
         return result
 
-    def update_memory(self, memory_id: str, new_text: str) -> None:
+    def update_memory(self, memory_id: str, new_text: str, user_id: Optional[str] = None) -> None:
         """Update an existing memory with new text."""
-        return self.store.update_memory(memory_id, new_text)
+        return self.store.update_memory(memory_id, new_text, user_id=user_id)
 
-    def list_all(self) -> List[Dict[str, Any]]:
+    def list_all(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """List all memories in the store."""
-        return self.store.get_all()
+        return self.store.get_all(user_id=user_id)
 
-    def get_health(self) -> Dict[str, Any]:
+    def get_health(self, user_id: Optional[str] = None) -> Dict[str, Any]:
         """Get health metrics for the memory system."""
-        memories = self.store.get_all()
+        memories = self.store.get_all(user_id=user_id)
         health = MemoryHealth(memories)
         stats = health.summary()
-        self.logger.log("health_snapshot", stats)
+        self.logger.log("health_snapshot", {"stats": stats, "user_id": user_id})
         return stats
 
     def _clean_summary(self, summary: str) -> str:
