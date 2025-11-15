@@ -3,21 +3,28 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as rest
-from sentence_transformers import SentenceTransformer
+
+from mmry.embedding import create_embedding_model
 
 COLLECTION_NAME = "mmry"
 
 
 class MemoryStore:
     def __init__(
-        self, url="http://localhost:6333", embed_model="all-MiniLM-L6-v2"
+        self,
+        url="http://localhost:6333",
+        embed_model="all-MiniLM-L6-v2",
+        embed_model_type: str = "local",
+        embed_api_key: Optional[str] = None,
     ) -> None:
         self.client = QdrantClient(url=url)
-        self.embedder = SentenceTransformer(embed_model)
+        self.embedder = create_embedding_model(
+            model_type=embed_model_type, model_name=embed_model, api_key=embed_api_key
+        )
         self.ensure_collection()
 
     def ensure_collection(self):
-        dim = self.embedder.get_sentence_embedding_dimension()
+        dim = self.embedder.get_embedding_dimension()
         try:
             self.client.get_collection(COLLECTION_NAME)
         except Exception:
@@ -29,7 +36,7 @@ class MemoryStore:
             )
 
     def embed(self, texts: List[str]) -> List[List[float]]:
-        return self.embedder.encode(texts).tolist()
+        return self.embedder.embed(texts)
 
     def add_memory(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         vector: list[float] = self.embed([text])[0]

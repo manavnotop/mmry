@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional
 
 
 @dataclass
@@ -18,7 +18,11 @@ class VectorDBConfig:
 
     url: str = "http://localhost:6333"
     collection_name: str = "mmry"
-    embed_model: str = "all-MiniLM-L6-v2"
+    embed_model: str = "all-MiniLM-L6-v2"  # Default local model
+    embed_model_type: Literal["local", "openrouter"] = (
+        "local"  # Type of embedding model
+    )
+    embed_api_key: Optional[str] = None  # API key for remote embedding models
 
 
 @dataclass

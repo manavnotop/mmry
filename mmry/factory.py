@@ -81,6 +81,8 @@ class VectorDBFactory:
             url=config.url,
             collection_name=config.collection_name,
             embed_model=config.embed_model,
+            embed_model_type=config.embed_model_type,
+            embed_api_key=config.embed_api_key,
         )
 
 

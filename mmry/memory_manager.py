@@ -101,7 +101,11 @@ class MemoryManager:
             except Exception as e:
                 self.logger.log(
                     "summarizer_error",
-                    {"error": str(e), "text_type": type(text).__name__, "user_id": user_id},
+                    {
+                        "error": str(e),
+                        "text_type": type(text).__name__,
+                        "user_id": user_id,
+                    },
                 )
                 # Fallback to basic text processing if summarizer fails
                 if isinstance(text, list):
@@ -143,7 +147,9 @@ class MemoryManager:
                 try:
                     merged_text = self.merger.merge_memories(old, summarized)
                 except Exception as e:
-                    self.logger.log("merger_error", {"error": str(e), "user_id": user_id})
+                    self.logger.log(
+                        "merger_error", {"error": str(e), "user_id": user_id}
+                    )
                     # Fallback to using the new summary if merger fails
                     merged_text = summarized
             else:
@@ -163,7 +169,9 @@ class MemoryManager:
         self.logger.log("create_result", result)
         return result
 
-    def query_memory(self, query: str, top_k: int = 3, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def query_memory(
+        self, query: str, top_k: int = 3, user_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Query memories based on a text query."""
         self.logger.log("query_request", {"query": query, "user_id": user_id})
         results = self.store.search(query, top_k, user_id=user_id)
@@ -176,7 +184,9 @@ class MemoryManager:
             try:
                 context_summary = self.context_builder.build_context(memories)
             except Exception as e:
-                self.logger.log("context_builder_error", {"error": str(e), "user_id": user_id})
+                self.logger.log(
+                    "context_builder_error", {"error": str(e), "user_id": user_id}
+                )
                 # Fallback to joining memories if context builder fails
                 context_summary = ". ".join(memories[:3])  # Use top 3 memories
 
@@ -186,11 +196,14 @@ class MemoryManager:
             "memories": reranked,
         }
         self.logger.log(
-            "query_result", {"query": query, "top_k": len(result["memories"]), "user_id": user_id}
+            "query_result",
+            {"query": query, "top_k": len(result["memories"]), "user_id": user_id},
         )
         return result
 
-    def update_memory(self, memory_id: str, new_text: str, user_id: Optional[str] = None) -> None:
+    def update_memory(
+        self, memory_id: str, new_text: str, user_id: Optional[str] = None
+    ) -> None:
         """Update an existing memory with new text."""
         return self.store.update_memory(memory_id, new_text, user_id=user_id)
 

@@ -4,9 +4,9 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as rest
-from sentence_transformers import SentenceTransformer
 
 from mmry.base.vectordb_base import VectorDBBase
+from mmry.embedding import create_embedding_model
 
 
 class Qdrant(VectorDBBase):
@@ -15,15 +15,19 @@ class Qdrant(VectorDBBase):
         url: str = "http://localhost:6333",
         collection_name: str = "mmry",
         embed_model: str = "all-MiniLM-L6-v2",
+        embed_model_type: str = "local",
+        embed_api_key: Optional[str] = None,
     ):
         self.url = url
         self.collection = collection_name
         self.client = QdrantClient(url=url)
-        self.embedder = SentenceTransformer(embed_model)
+        self.embedder = create_embedding_model(
+            model_type=embed_model_type, model_name=embed_model, api_key=embed_api_key
+        )
         self.ensure_collection()
 
     def ensure_collection(self):
-        dim = self.embedder.get_sentence_embedding_dimension()
+        dim = self.embedder.get_embedding_dimension()
         try:
             self.client.get_collection(self.collection)
         except Exception:
@@ -35,9 +39,14 @@ class Qdrant(VectorDBBase):
             )
 
     def embed(self, texts: List[str]) -> List[List[float]]:
-        return self.embedder.encode(texts).tolist()
+        return self.embedder.embed(texts)
 
-    def add_memory(self, text: str, metadata: Optional[Dict[str, Any]] = None, user_id: Optional[str] = None) -> str:
+    def add_memory(
+        self,
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+    ) -> str:
         vector = self.embed([text])[0]
         memory_id = str(uuid.uuid4())
         payload = {
@@ -55,7 +64,9 @@ class Qdrant(VectorDBBase):
         )
         return memory_id
 
-    def search(self, query: str, top_k: int = 3, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def search(
+        self, query: str, top_k: int = 3, user_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         vector = self.embed([query])[0]
 
         # Prepare filtering conditions
@@ -64,8 +75,7 @@ class Qdrant(VectorDBBase):
             search_filter = rest.Filter(
                 must=[
                     rest.FieldCondition(
-                        key="user_id",
-                        match=rest.MatchValue(value=user_id)
+                        key="user_id", match=rest.MatchValue(value=user_id)
                     )
                 ]
             )
@@ -73,18 +83,18 @@ class Qdrant(VectorDBBase):
                 collection_name=self.collection,
                 query_vector=vector,
                 limit=top_k,
-                query_filter=search_filter
+                query_filter=search_filter,
             )
         else:
             # For backward compatibility, search all memories if no user_id is provided
             results = self.client.search(
-                collection_name=self.collection,
-                query_vector=vector,
-                limit=top_k
+                collection_name=self.collection, query_vector=vector, limit=top_k
             )
         return [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]
 
-    def update_memory(self, memory_id: str, new_text: str, user_id: Optional[str] = None) -> None:
+    def update_memory(
+        self, memory_id: str, new_text: str, user_id: Optional[str] = None
+    ) -> None:
         vector = self.embed([new_text])[0]
         # Retrieve existing payload to preserve created_at and importance
         try:
@@ -110,15 +120,12 @@ class Qdrant(VectorDBBase):
             search_filter = rest.Filter(
                 must=[
                     rest.FieldCondition(
-                        key="user_id",
-                        match=rest.MatchValue(value=user_id)
+                        key="user_id", match=rest.MatchValue(value=user_id)
                     )
                 ]
             )
             records = self.client.scroll(
-                collection_name=self.collection,
-                limit=100,
-                scroll_filter=search_filter
+                collection_name=self.collection, limit=100, scroll_filter=search_filter
             )[0]
         else:
             # For backward compatibility, return all memories if no user_id is provided

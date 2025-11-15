@@ -79,7 +79,9 @@ class MemoryClient:
         """
         return self.manager.query_memory(query, top_k, user_id)
 
-    def update_memory(self, memory_id: str, new_text: str, user_id: Optional[str] = None):
+    def update_memory(
+        self, memory_id: str, new_text: str, user_id: Optional[str] = None
+    ):
         """
         Update an existing memory with new text.
 
