@@ -11,3 +11,5 @@ wheels/
 test.py
 .env
 *.jsonl
+evaluation/
+*.DS_Store

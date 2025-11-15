@@ -115,3 +115,19 @@ class MemoryClient:
             Health metrics dictionary
         """
         return self.manager.get_health(user_id)
+
+    @classmethod
+    def from_config(cls, config: MemoryConfig):
+        """
+        Create a MemoryClient instance from a MemoryConfig object.
+
+        Args:
+            config: MemoryConfig object with all configuration
+
+        Returns:
+            MemoryClient instance
+        """
+        # Create a new instance without __init__ to avoid config processing
+        client = cls.__new__(cls)
+        client.manager = MemoryManager(config=config)
+        return client
