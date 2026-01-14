@@ -72,6 +72,14 @@ class OpenRouterEmbeddingModel(EmbeddingModel):
         Returns:
             The dimension of the embeddings
         """
+        if self.model_name in [
+            "qwen/qwen3-7b-embedding:v1",
+            "qwen/qwen3-8b-embedding:v1",
+        ]:
+            return 768  # Qwen3 7B/8B embedding model dimension
+        elif self.model_name == "qwen/qwen3-14b-embedding:v1":
+            return 1536  # Qwen3-14B embedding model dimension
+
         if self._embedding_dim is not None:
             return self._embedding_dim
 

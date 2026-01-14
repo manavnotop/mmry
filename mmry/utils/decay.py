@@ -2,6 +2,8 @@ import datetime
 import math
 from typing import Any, Dict
 
+from mmry.utils.datetime import parse_datetime
+
 
 def compute_decay_factor(
     created_at: str | datetime.datetime, decay_rate: float = 0.01
@@ -10,15 +12,10 @@ def compute_decay_factor(
     Returns a decay multiplier (0–1) based on how old a memory is.
     New memories ≈ 1.0, old ones decay toward 0.
     """
-    if isinstance(created_at, str):
-        created = datetime.datetime.fromisoformat(created_at)
-    elif isinstance(created_at, datetime.datetime):
-        created = created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=datetime.timezone.utc)
-    else:
+    if not isinstance(created_at, (str, datetime.datetime)):
         return 1.0  # Default to no decay if invalid type
 
+    created = parse_datetime(created_at)
     now = datetime.datetime.now(datetime.timezone.utc)
     delta_hours = (now - created).total_seconds() / 3600
     return math.exp(-decay_rate * delta_hours)

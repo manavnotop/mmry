@@ -1,5 +1,4 @@
 import os
-import re
 from typing import Any, Dict, List, Optional
 
 from mmry.base.llm_base import ContextBuilderBase, MergerBase, SummarizerBase
@@ -10,6 +9,7 @@ from mmry.utils.decay import apply_memory_decay
 from mmry.utils.health import MemoryHealth
 from mmry.utils.logger import MemoryLogger
 from mmry.utils.scoring import rerank_results
+from mmry.utils.text import clean_summary
 
 
 class MemoryManager:
@@ -97,7 +97,7 @@ class MemoryManager:
             try:
                 summarized = self.summarizer.summarize(text)
                 # Clean the summary to remove markdown and formatting for better searchability
-                summarized = self._clean_summary(summarized)
+                summarized = clean_summary(summarized)
             except Exception as e:
                 self.logger.log(
                     "summarizer_error",
@@ -211,6 +211,25 @@ class MemoryManager:
         """List all memories in the store."""
         return self.store.get_all(user_id=user_id)
 
+    def delete_memory(
+        self, memory_id: str, user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Delete a memory by ID.
+
+        Args:
+            memory_id: The ID of the memory to delete.
+            user_id: Optional user ID to ensure correct user's memory is deleted.
+
+        Returns:
+            Dict with 'status' and 'deleted' keys.
+        """
+        self.logger.log("delete_request", {"memory_id": memory_id, "user_id": user_id})
+        deleted = self.store.delete(memory_id, user_id=user_id)
+        result = {"status": "deleted" if deleted else "not_found", "deleted": deleted}
+        self.logger.log("delete_result", result)
+        return result
+
     def get_health(self, user_id: Optional[str] = None) -> Dict[str, Any]:
         """Get health metrics for the memory system."""
         memories = self.store.get_all(user_id=user_id)
@@ -219,33 +238,60 @@ class MemoryManager:
         self.logger.log("health_snapshot", {"stats": stats, "user_id": user_id})
         return stats
 
-    def _clean_summary(self, summary: str) -> str:
+    def create_memory_batch(
+        self,
+        texts: List[str],
+        metadatas: Optional[List[Dict[str, Any]]] = None,
+        user_ids: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
         """
-        Clean summary text by removing markdown formatting and converting
-        numbered lists to simple sentences for better vector search similarity.
+        Create multiple memories efficiently in a batch.
+
+        Args:
+            texts: List of text strings to create memories from.
+            metadatas: Optional list of metadata dicts, one per text.
+            user_ids: Optional list of user IDs, one per text.
+
+        Returns:
+            List of dicts with 'id', 'status', and 'summary' keys.
         """
-        # Remove markdown bold/italic
-        summary = re.sub(r"\*\*([^*]+)\*\*", r"\1", summary)
-        summary = re.sub(r"\*([^*]+)\*", r"\1", summary)
-        summary = re.sub(r"__([^_]+)__", r"\1", summary)
-        summary = re.sub(r"_([^_]+)_", r"\1", summary)
+        self.logger.log(
+            "create_batch_request", {"count": len(texts), "user_ids": user_ids}
+        )
 
-        # Convert numbered/bulleted lists to sentences
-        # Match patterns like "1. text" or "- text" or "• text"
-        lines = summary.split("\n")
-        cleaned_lines = []
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            # Remove list markers (1., 2., -, •, etc.)
-            line = re.sub(r"^\d+\.\s*", "", line)
-            line = re.sub(r"^[-•]\s*", "", line)
-            cleaned_lines.append(line)
+        # Process texts - summarize if available
+        processed_texts = texts
+        if self.summarizer:
+            processed_texts = []
+            metadatas = metadatas or [{}] * len(texts)
 
-        # Join with periods and spaces for better semantic search
-        cleaned = ". ".join(cleaned_lines)
-        # Remove extra whitespace
-        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+            for i, text in enumerate(texts):
+                try:
+                    summarized = self.summarizer.summarize(text)
+                    summarized = clean_summary(summarized)
+                except Exception as e:
+                    self.logger.log(
+                        "summarizer_error_batch",
+                        {
+                            "error": str(e),
+                            "index": i,
+                            "user_id": user_ids[i] if user_ids else None,
+                        },
+                    )
+                    summarized = text if isinstance(text, str) else str(text)
 
-        return cleaned
+                # Update metadata with summary
+                metadatas[i] = metadatas[i] or {}
+                metadatas[i]["summary"] = summarized
+                processed_texts.append(summarized)
+
+        # Batch add to store
+        memory_ids = self.store.add_batch(processed_texts, metadatas, user_ids)
+
+        # Build results
+        results = [
+            {"status": "created", "id": mem_id, "summary": processed_texts[i]}
+            for i, mem_id in enumerate(memory_ids)
+        ]
+        self.logger.log("create_batch_result", {"count": len(results)})
+        return results

@@ -2,6 +2,8 @@ import datetime
 import math
 from typing import Any, Dict, List
 
+from mmry.utils.datetime import parse_datetime
+
 
 def hybrid_score(
     similarity: float,
@@ -20,13 +22,7 @@ def hybrid_score(
         # If created_at is missing, skip recency weighting
         recency_weight = 0.0
     else:
-        if isinstance(created_at, str):
-            created_at = datetime.datetime.fromisoformat(created_at)
-        elif isinstance(created_at, datetime.datetime):
-            # Ensure timezone-aware comparison
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=datetime.timezone.utc)
-
+        created_at = parse_datetime(created_at)
         now = datetime.datetime.now(datetime.timezone.utc)
         delta_hours = (now - created_at).total_seconds() / 3600
         recency_weight = math.exp(-decay_rate * delta_hours)

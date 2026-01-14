@@ -1,12 +1,14 @@
-from typing import Dict, Type
+from typing import Dict, Optional, Type
 
 from mmry.base.llm_base import LLMBase
 from mmry.base.vectordb_base import VectorDBBase
 from mmry.config import LLMConfig, VectorDBConfig
+from mmry.embedding.embedding_base import EmbeddingModel
 
 # Registry dictionaries to store available implementations
 VECTOR_DB_REGISTRY: Dict[str, Type[VectorDBBase]] = {}
 LLM_REGISTRY: Dict[str, Type[LLMBase]] = {}
+EMBEDDING_REGISTRY: Dict[str, Type[EmbeddingModel]] = {}
 
 
 def register_vectordb(name: str):
@@ -29,6 +31,16 @@ def register_llm(name: str):
     return decorator
 
 
+def register_embedding(name: str):
+    """Decorator to register a new embedding model implementation."""
+
+    def decorator(cls: Type[EmbeddingModel]) -> Type[EmbeddingModel]:
+        EMBEDDING_REGISTRY[name] = cls
+        return cls
+
+    return decorator
+
+
 # Register the Qdrant implementation at module level
 def _register_implementations():
     """Register all available implementations."""
@@ -46,6 +58,13 @@ def _register_implementations():
     register_llm("openrouter_summarizer")(OpenRouterSummarizer)
     register_llm("openrouter_merger")(OpenRouterMerger)
     register_llm("openrouter_context_builder")(OpenRouterContextBuilder)
+
+    # Register embedding models
+    from mmry.embedding.local_embedding import LocalEmbeddingModel
+    from mmry.embedding.openrouter_embedding import OpenRouterEmbeddingModel
+
+    register_embedding("local")(LocalEmbeddingModel)
+    register_embedding("openrouter")(OpenRouterEmbeddingModel)
 
 
 # Register implementations when module is imported
@@ -126,3 +145,38 @@ class LLMFactory:
             base_url=config.base_url,
             timeout=config.timeout,
         )
+
+
+class EmbeddingFactory:
+    """Factory class for creating embedding model instances."""
+
+    @staticmethod
+    def create(
+        model_type: str, model_name: str, api_key: Optional[str] = None
+    ) -> EmbeddingModel:
+        """
+        Create an embedding model instance based on type and configuration.
+
+        Args:
+            model_type: Type of embedding model ('local' or 'openrouter')
+            model_name: Name of the model to use
+            api_key: API key for remote models (optional)
+
+        Returns:
+            Instance of the requested embedding model
+
+        Raises:
+            ValueError: If the requested embedding model type is not registered
+        """
+        if model_type.lower() not in EMBEDDING_REGISTRY:
+            available = ", ".join(EMBEDDING_REGISTRY.keys())
+            raise ValueError(
+                f"Unsupported embedding model type: {model_type}. Available: {available}"
+            )
+
+        embed_class = EMBEDDING_REGISTRY[model_type.lower()]
+
+        if model_type.lower() == "local":
+            return embed_class(model_name)
+        else:
+            return embed_class(api_key=api_key, model_name=model_name)
