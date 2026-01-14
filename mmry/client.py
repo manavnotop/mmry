@@ -100,7 +100,8 @@ class MemoryClient:
             ... )
 
         Args:
-            text: Either a string or a list of conversation dicts with 'role' and 'content' keys.
+            text: Either a string or a list of conversation dicts with 'role'
+                and 'content' keys.
             metadata: Optional metadata to attach to the memory.
             user_id: Optional user identifier to associate with this memory.
 
@@ -216,3 +217,58 @@ class MemoryClient:
             List of dicts with 'id', 'status', and 'summary' keys.
         """
         return self.manager.create_memory_batch(texts, metadatas, user_ids)
+
+    async def create_memory_async(
+        self,
+        text: Union[str, List[Dict[str, str]]],
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a memory from text or conversation (async version).
+
+        Args:
+            text: Either a string or a list of conversation dicts with 'role'
+                and 'content' keys.
+            metadata: Optional metadata to attach to the memory.
+            user_id: Optional user identifier to associate with this memory.
+
+        Returns:
+            Dict with 'status', 'id', and 'summary' keys.
+        """
+        return await self.manager.create_memory_async(text, metadata, user_id)
+
+    async def query_memory_async(
+        self, query: str, top_k: int = 3, user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Query memories based on a text query (async version).
+
+        Args:
+            query: Text to search for in memories.
+            top_k: Number of results to return (default 3).
+            user_id: Optional user identifier to filter memories.
+
+        Returns:
+            Dict with 'memories', 'context_summary', and 'query' keys.
+        """
+        return await self.manager.query_memory_async(query, top_k, user_id)
+
+    async def create_memory_batch_async(
+        self,
+        texts: List[str],
+        metadatas: Optional[List[Dict[str, Any]]] = None,
+        user_ids: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Create multiple memories efficiently in a batch (async version).
+
+        Args:
+            texts: List of text strings to create memories from.
+            metadatas: Optional list of metadata dicts, one per text.
+            user_ids: Optional list of user IDs, one per text.
+
+        Returns:
+            List of dicts with 'id', 'status', and 'summary' keys.
+        """
+        return await self.manager.create_memory_batch_async(texts, metadatas, user_ids)

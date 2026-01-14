@@ -115,7 +115,7 @@ class LLMFactory:
 
         Args:
             config: Configuration object for the LLM
-            task: The specific task the LLM will be used for (affects implementation choice)
+            task: Task affects which LLM implementation is used
 
         Returns:
             Instance of the requested LLM
@@ -133,10 +133,8 @@ class LLMFactory:
         llm_key = task_to_provider.get(task, "openrouter_summarizer")
 
         if llm_key not in LLM_REGISTRY:
-            available_llms = ", ".join(LLM_REGISTRY.keys())
-            raise ValueError(
-                f"Unsupported LLM for task {task}: {llm_key}. Available: {available_llms}"
-            )
+            available = ", ".join(LLM_REGISTRY.keys())
+            raise ValueError(f"Unsupported LLM '{task}'. Available: {available}")
 
         llm_class = LLM_REGISTRY[llm_key]
         return llm_class(
@@ -170,9 +168,7 @@ class EmbeddingFactory:
         """
         if model_type.lower() not in EMBEDDING_REGISTRY:
             available = ", ".join(EMBEDDING_REGISTRY.keys())
-            raise ValueError(
-                f"Unsupported embedding model type: {model_type}. Available: {available}"
-            )
+            raise ValueError(f"Unsupported '{model_type}'. Available: {available}")
 
         embed_class = EMBEDDING_REGISTRY[model_type.lower()]
 

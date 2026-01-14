@@ -27,7 +27,9 @@ class VectorDBBase(ABC):
         pass
 
     @abstractmethod
-    def get_all(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_all(
+        self, user_id: Optional[str] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
         pass
 
     @abstractmethod

@@ -21,7 +21,8 @@ class OpenRouterSummarizer(OpenRouterLLMBase, SummarizerBase):
         Summarize text or conversation into a factual memory statement.
 
         Args:
-            text: Either a string or a list of conversation dicts with 'role' and 'content' keys.
+            text: Either a string or a list of conversation dicts with 'role'
+                and 'content' keys.
 
         Returns:
             A summarized memory statement.
@@ -65,7 +66,8 @@ class OpenRouterSummarizer(OpenRouterLLMBase, SummarizerBase):
         Async version of summarize.
 
         Args:
-            text: Either a string or a list of conversation dicts with 'role' and 'content' keys.
+            text: Either a string or a list of conversation dicts with 'role'
+                and 'content' keys.
 
         Returns:
             A summarized memory statement.

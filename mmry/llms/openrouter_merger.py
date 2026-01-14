@@ -25,11 +25,9 @@ class OpenRouterMerger(OpenRouterLLMBase, MergerBase):
         """
         prompt = (
             "You are a factual knowledge merger for an AI memory system.\n"
-            "Combine the two given memory statements into one concise, factual statement.\n"
-            "Keep all valid facts, remove contradictions, and be precise.\n\n"
-            f"Old memory: {old_memory}\n"
-            f"New memory: {new_memory}\n\n"
-            "Merged memory:"
+            "Combine two statements into one concise, factual statement.\n"
+            "Keep all facts, remove contradictions, be precise.\n\n"
+            f"Old: {old_memory}\nNew: {new_memory}\nMerged:"
         )
 
         return self._call_api(prompt)
@@ -38,10 +36,8 @@ class OpenRouterMerger(OpenRouterLLMBase, MergerBase):
         """Async version of merge_memories."""
         prompt = (
             "You are a factual knowledge merger for an AI memory system.\n"
-            "Combine the two given memory statements into one concise, factual statement.\n"
-            "Keep all valid facts, remove contradictions, and be precise.\n\n"
-            f"Old memory: {old_memory}\n"
-            f"New memory: {new_memory}\n\n"
-            "Merged memory:"
+            "Combine two statements into one concise, factual statement.\n"
+            "Keep all facts, remove contradictions, be precise.\n\n"
+            f"Old: {old_memory}\nNew: {new_memory}\nMerged:"
         )
         return await self._call_api_async(prompt)

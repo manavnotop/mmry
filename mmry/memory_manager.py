@@ -79,7 +79,8 @@ class MemoryManager:
         Create a memory from text or conversation.
 
         Args:
-            text: Either a string or a list of conversation dicts with 'role' and 'content' keys.
+            text: Either a string or a list of conversation dicts with 'role'
+                and 'content' keys.
             metadata: Optional metadata to attach to the memory.
             user_id: Optional user identifier to associate with this memory.
 
@@ -90,7 +91,7 @@ class MemoryManager:
         if self.summarizer:
             try:
                 summarized = self.summarizer.summarize(text)
-                # Clean the summary to remove markdown and formatting for better searchability
+                # Clean the summary to remove markdown formatting
                 summarized = clean_summary(summarized)
             except Exception:
                 # Fallback to basic text processing if summarizer fails
@@ -244,6 +245,168 @@ class MemoryManager:
         memory_ids = self.store.add_batch(processed_texts, metadatas, user_ids)
 
         # Build results
+        return [
+            {"status": "created", "id": mem_id, "summary": processed_texts[i]}
+            for i, mem_id in enumerate(memory_ids)
+        ]
+
+    async def create_memory_async(
+        self,
+        text: str | List[Dict[str, str]],
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a memory from text or conversation (async version).
+
+        Args:
+            text: Either a string or a list of conversation dicts.
+            metadata: Optional metadata to attach to the memory.
+            user_id: Optional user identifier to associate with this memory.
+
+        Returns:
+            Dict with status, id, and summary information.
+        """
+        # Handle summarization for both text and conversations
+        if self.summarizer:
+            try:
+                # Check if summarizer has async method
+                if hasattr(self.summarizer, "summarize_async"):
+                    summarized = await self.summarizer.summarize_async(text)
+                else:
+                    summarized = self.summarizer.summarize(text)
+                summarized = clean_summary(summarized)
+            except Exception:
+                if isinstance(text, list):
+                    conversation_str = "\n".join(
+                        [
+                            f"{msg.get('role', 'unknown')}: {msg.get('content', '')}"
+                            for msg in text
+                        ]
+                    )
+                    summarized = conversation_str
+                else:
+                    summarized = text
+        else:
+            if isinstance(text, list):
+                conversation_str = "\n".join(
+                    [
+                        f"{msg.get('role', 'unknown')}: {msg.get('content', '')}"
+                        for msg in text
+                    ]
+                )
+                summarized = conversation_str
+            else:
+                summarized = text
+
+        metadata = metadata or {}
+        metadata["raw_text"] = text if isinstance(text, str) else str(text)
+        metadata["raw_conversation"] = text if isinstance(text, list) else None
+        metadata["summary"] = summarized
+
+        similar = self.store.search(summarized, top_k=1, user_id=user_id)
+
+        if similar and similar[0]["score"] > self.threshold:
+            old = similar[0]["payload"]["text"]
+            mem_id = similar[0]["id"]
+
+            if self.merger:
+                try:
+                    if hasattr(self.merger, "merge_memories_async"):
+                        merged_text = await self.merger.merge_memories_async(
+                            old, summarized
+                        )
+                    else:
+                        merged_text = self.merger.merge_memories(old, summarized)
+                except Exception:
+                    merged_text = summarized
+            else:
+                merged_text = summarized
+
+            self.store.update_memory(mem_id, merged_text, user_id=user_id)
+            return {
+                "status": "merged",
+                "id": mem_id,
+                "old": old,
+                "new": summarized,
+                "merged": merged_text,
+            }
+
+        mem_id = self.store.add_memory(summarized, metadata, user_id=user_id)
+        return {"status": "created", "id": mem_id, "summary": summarized}
+
+    async def query_memory_async(
+        self, query: str, top_k: int = 3, user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Query memories based on a text query (async version).
+
+        Args:
+            query: Text to search for in memories.
+            top_k: Number of results to return (default 3).
+            user_id: Optional user identifier to filter memories.
+
+        Returns:
+            Dict with 'memories', 'context_summary', and 'query' keys.
+        """
+        results = self.store.search(query, top_k, user_id=user_id)
+        decayed = [apply_memory_decay(r) for r in results]
+        reranked = rerank_results(decayed)
+        memories = [r["payload"]["text"] for r in reranked]
+
+        context_summary = None
+        if self.context_builder:
+            try:
+                if hasattr(self.context_builder, "build_context_async"):
+                    context_summary = await self.context_builder.build_context_async(
+                        memories
+                    )
+                else:
+                    context_summary = self.context_builder.build_context(memories)
+            except Exception:
+                context_summary = ". ".join(memories[:3])
+
+        return {
+            "query": query,
+            "context_summary": context_summary,
+            "memories": reranked,
+        }
+
+    async def create_memory_batch_async(
+        self,
+        texts: List[str],
+        metadatas: Optional[List[Dict[str, Any]]] = None,
+        user_ids: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Create multiple memories efficiently in a batch (async version).
+
+        Args:
+            texts: List of text strings to create memories from.
+            metadatas: Optional list of metadata dicts, one per text.
+            user_ids: Optional list of user IDs, one per text.
+
+        Returns:
+            List of dicts with 'id', 'status', and 'summary' keys.
+        """
+        processed_texts = texts
+        if self.summarizer and hasattr(self.summarizer, "summarize_async"):
+            processed_texts = []
+            metadatas = metadatas or [{}] * len(texts)
+
+            for i, text in enumerate(texts):
+                try:
+                    summarized = await self.summarizer.summarize_async(text)
+                    summarized = clean_summary(summarized)
+                except Exception:
+                    summarized = text if isinstance(text, str) else str(text)
+
+                metadatas[i] = metadatas[i] or {}
+                metadatas[i]["summary"] = summarized
+                processed_texts.append(summarized)
+
+        memory_ids = self.store.add_batch(processed_texts, metadatas, user_ids)
+
         return [
             {"status": "created", "id": mem_id, "summary": processed_texts[i]}
             for i, mem_id in enumerate(memory_ids)
