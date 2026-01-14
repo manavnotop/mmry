@@ -104,31 +104,31 @@ asyncio.run(main())
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        mmry Architecture                         │
+│                        mmry Architecture                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   ┌───────────────┐                                            │
-│   │  MemoryClient │  ← User-facing API                         │
-│   └───────┬───────┘                                            │
-│           │                                                    │
-│   ┌───────▼───────┐                                            │
-│   │ MemoryManager │  ← Core orchestration                      │
-│   └───────┬───────┘                                            │
-│           │                                                    │
-│   ┌───────▼───────┐    ┌──────────────────┐                   │
-│   │   VectorDB    │    │  LLM Components  │                   │
-│   │   (Qdrant)    │◄───│ Summarizer       │                   │
-│   │               │    │ Merger           │                   │
-│   │  - Store      │    │ ContextBuilder   │                   │
-│   │  - Search     │    └──────────────────┘                   │
-│   │  - Retrieve   │                                            │
-│   └───────────────┘                                            │
+│   ┌───────────────┐                                             │
+│   │  MemoryClient │  ← User-facing API                          │
+│   └───────┬───────┘                                             │
+│           │                                                     │
+│   ┌───────▼───────┐                                             │
+│   │ MemoryManager │  ← Core orchestration                       │
+│   └───────┬───────┘                                             │
+│           │                                                     │
+│   ┌───────▼───────┐    ┌──────────────────┐                     │
+│   │   VectorDB    │    │  LLM Components  │                     │
+│   │   (Qdrant)    │◄───│ Summarizer       │                     │
+│   │               │    │ Merger           │                     │
+│   │  - Store      │    │ ContextBuilder   │                     │
+│   │  - Search     │    └──────────────────┘                     │
+│   │  - Retrieve   │                                             │
+│   └───────────────┘                                             │
 │                                                                 │
-│   ┌───────────────┐    ┌──────────────────┐                   │
-│   │  Embeddings   │───►│ Sentence-BERT    │  ← Local models   │
-│   └───────────────┘    │ (default)        │                   │
-│                        │ or OpenRouter    │                   │
-│                        └──────────────────┘                   │
+│   ┌───────────────┐    ┌──────────────────┐                     │
+│   │  Embeddings   │───►│ Sentence-BERT    │  ← Local models     │
+│   └───────────────┘    │ (default)        │                     │
+│                        │ or OpenRouter    │                     │
+│                        └──────────────────┘                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
