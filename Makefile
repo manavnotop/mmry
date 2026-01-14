@@ -11,6 +11,10 @@ test:
 
 	docker rm -f qdrant-test >/dev/null
 
+# Extract first N conversations from dataset
+extract-subset:
+	uv run extract_subset.py
+
 # Mmry Evaluation Commands
 eval-setup:
 	mkdir -p results dataset
@@ -18,8 +22,32 @@ eval-setup:
 eval-run:
 	uv run -m mmry_evals.run_evals --top_k 3 --embed_model all-MiniLM-L6-v2 --embed_model_type local
 
+eval-run-subset:
+	uv run -m mmry_evals.run_evals --data_path dataset/locomo10_subset.json --output_path results/mmry_results_subset.json --top_k 3 --embed_model all-MiniLM-L6-v2 --embed_model_type local
+
+eval-run-subset-openrouter:
+	uv run -m mmry_evals.run_evals --data_path dataset/locomo10_subset.json --output_path results/mmry_results_subset_openrouter.json --top_k 3 --embed_model qwen/qwen3-8b-embedding:v1 --embed_model_type openrouter
+
+eval-metrics-subset:
+	uv run -m mmry_evals.evals --input_file results/mmry_results_subset.json --output_file results/mmry_evaluation_metrics_subset.json
+
+eval-metrics-subset-openrouter:
+	uv run -m mmry_evals.evals --input_file results/mmry_results_subset_openrouter.json --output_file results/mmry_evaluation_metrics_subset_openrouter.json
+
+eval-scores-subset:
+	uv run -m mmry_evals.generate_scores --input_file results/mmry_evaluation_metrics_subset.json --output_file results/mmry_final_scores_subset.json
+
+eval-scores-subset-openrouter:
+	uv run -m mmry_evals.generate_scores --input_file results/mmry_evaluation_metrics_subset_openrouter.json --output_file results/mmry_final_scores_subset_openrouter.json
+
+eval-full-subset: eval-setup extract-subset eval-run-subset eval-metrics-subset eval-scores-subset
+	@echo "Complete mmry evaluation pipeline on first 5 conversations finished!"
+
+eval-full-subset-openrouter: eval-setup extract-subset eval-run-subset-openrouter eval-metrics-subset-openrouter eval-scores-subset-openrouter
+	@echo "Complete mmry evaluation pipeline with OpenRouter embeddings on first 5 conversations finished!"
+
 eval-run-openrouter:
-	uv run -m mmry_evals.run_evals --top_k 3 --embed_model openai/text-embedding-3-small --embed_model_type openrouter --output_path results/mmry_results_openrouter.json
+	uv run -m mmry_evals.run_evals --top_k 3 --embed_model qwen/qwen3-8b-embedding:v1 --embed_model_type openrouter --output_path results/mmry_results_openrouter.json
 
 eval-metrics:
 	uv run -m mmry_evals.evals
@@ -36,5 +64,5 @@ eval-scores-openrouter:
 eval-full: eval-setup eval-run eval-metrics eval-scores
 	@echo "Complete mmry evaluation pipeline finished!"
 
-eval-full-openrouter: eval-setup eval-run-openrouter eval-metrics-openrouter eval-scores
+eval-full-openrouter: eval-setup eval-run-openrouter eval-metrics-openrouter eval-scores-openrouter
 	@echo "Complete mmry evaluation pipeline with OpenRouter embeddings finished!"

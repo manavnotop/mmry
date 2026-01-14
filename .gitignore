@@ -8,8 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
-test.py
+
 .env
-*.jsonl
+mmry_evals
 evaluation/
 *.DS_Store

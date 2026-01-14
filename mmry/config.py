@@ -32,4 +32,3 @@ class MemoryConfig:
     llm_config: Optional[LLMConfig] = None
     vector_db_config: Optional[VectorDBConfig] = None
     similarity_threshold: float = 0.8
-    log_path: str = "memory_events.jsonl"

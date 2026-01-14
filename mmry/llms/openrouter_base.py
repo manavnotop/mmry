@@ -1,6 +1,14 @@
 from typing import Optional
 
 import requests
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from mmry.errors import LLMConnectionError, LLMError, LLMTTimeoutError
 
 
 class OpenRouterLLMBase:
@@ -22,6 +30,11 @@ class OpenRouterLLMBase:
         self.max_tokens = max_tokens
         self.temperature = temperature
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((LLMConnectionError, LLMTTimeoutError)),
+    )
     def _call_api(self, prompt: str) -> str:
         """Make an API call to OpenRouter with the given prompt."""
         try:
@@ -40,21 +53,28 @@ class OpenRouterLLMBase:
 
             response_data = resp.json()
             if "choices" not in response_data or not response_data["choices"]:
-                raise ValueError("Invalid response from LLM API: no choices returned")
+                raise LLMError("Invalid response from LLM API: no choices returned")
 
             content = response_data["choices"][0]["message"]["content"].strip()
             return content
         except requests.exceptions.HTTPError as e:
-            raise ConnectionError(f"HTTP error during LLM call: {e}")
+            raise LLMConnectionError(f"HTTP error during LLM call: {e}")
         except requests.exceptions.Timeout:
-            raise TimeoutError(f"Timeout during LLM call to {self.url}")
+            raise LLMTTimeoutError(f"Timeout during LLM call to {self.url}")
         except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Request error during LLM call: {str(e)}")
+            raise LLMConnectionError(f"Request error during LLM call: {str(e)}")
         except KeyError as e:
-            raise ValueError(f"Invalid response format from LLM API: {str(e)}")
+            raise LLMError(f"Invalid response format from LLM API: {str(e)}")
+        except LLMError:
+            raise
         except Exception as e:
-            raise RuntimeError(f"Unexpected error during LLM call: {str(e)}")
+            raise LLMError(f"Unexpected error during LLM call: {str(e)}")
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((LLMConnectionError, LLMTTimeoutError)),
+    )
     async def _call_api_async(self, prompt: str) -> str:
         """Make an async API call to OpenRouter with the given prompt."""
         try:
@@ -74,22 +94,22 @@ class OpenRouterLLMBase:
 
                 response_data = resp.json()
                 if "choices" not in response_data or not response_data["choices"]:
-                    raise ValueError(
-                        "Invalid response from LLM API: no choices returned"
-                    )
+                    raise LLMError("Invalid response from LLM API: no choices returned")
 
                 content = response_data["choices"][0]["message"]["content"].strip()
                 return content
         except httpx.HTTPStatusError as e:
-            raise ConnectionError(f"HTTP error during LLM call: {e}")
+            raise LLMConnectionError(f"HTTP error during LLM call: {e}")
         except httpx.Timeout:
-            raise TimeoutError(f"Timeout during LLM call to {self.url}")
+            raise LLMTTimeoutError(f"Timeout during LLM call to {self.url}")
         except httpx.RequestError as e:
-            raise ConnectionError(f"Request error during LLM call: {str(e)}")
+            raise LLMConnectionError(f"Request error during LLM call: {str(e)}")
         except KeyError as e:
-            raise ValueError(f"Invalid response format from LLM API: {str(e)}")
+            raise LLMError(f"Invalid response format from LLM API: {str(e)}")
+        except LLMError:
+            raise
         except Exception as e:
-            raise RuntimeError(f"Unexpected error during LLM call: {str(e)}")
+            raise LLMError(f"Unexpected error during LLM call: {str(e)}")
 
     def generate(self, prompt: str) -> str:
         """Generic method to call the LLM with a prompt."""

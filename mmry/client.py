@@ -68,7 +68,6 @@ class MemoryClient:
             llm_config=llm_config,
             vector_db_config=vector_db_config,
             similarity_threshold=config_dict.get("similarity_threshold", 0.8),
-            log_path=config_dict.get("log_path", "memory_events.jsonl"),
         )
 
     def create_memory(

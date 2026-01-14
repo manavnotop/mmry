@@ -179,23 +179,51 @@ class Qdrant(VectorDBBase):
             points=[rest.PointStruct(id=memory_id, vector=vector, payload=payload)],
         )
 
-    def get_all(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        # Prepare filtering conditions
-        if user_id:
-            search_filter = rest.Filter(
-                must=[
-                    rest.FieldCondition(
-                        key="user_id", match=rest.MatchValue(value=user_id)
-                    )
-                ]
-            )
-            records = self.client.scroll(
-                collection_name=self.collection, limit=100, scroll_filter=search_filter
-            )[0]
-        else:
-            # For backward compatibility, return all memories if no user_id is provided
-            records = self.client.scroll(collection_name=self.collection, limit=100)[0]
-        return [{"id": r.id, "payload": r.payload} for r in records]
+    def get_all(
+        self, user_id: Optional[str] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all memories with optional pagination.
+
+        Args:
+            user_id: Optional user ID to filter memories.
+            limit: Number of records to fetch per page (default 100).
+
+        Returns:
+            List of all memories with their payloads.
+        """
+        all_records = []
+        offset = None
+
+        while True:
+            if user_id:
+                search_filter = rest.Filter(
+                    must=[
+                        rest.FieldCondition(
+                            key="user_id", match=rest.MatchValue(value=user_id)
+                        )
+                    ]
+                )
+                records, offset = self.client.scroll(
+                    collection_name=self.collection,
+                    limit=limit,
+                    scroll_filter=search_filter,
+                    offset=offset,
+                )
+            else:
+                records, offset = self.client.scroll(
+                    collection_name=self.collection,
+                    limit=limit,
+                    offset=offset,
+                )
+
+            all_records.extend([{"id": r.id, "payload": r.payload} for r in records])
+
+            # Break if no more pages
+            if offset is None or len(records) < limit:
+                break
+
+        return all_records
 
     def get_memory_history(
         self, memory_id: str, user_id: Optional[str] = None
