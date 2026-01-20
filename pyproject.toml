@@ -1,30 +1,28 @@
 [project]
-name = "mmry"
+name = "mmry-ai"
 version = "0.1.0"
-description = "Add your description here"
+description = "A memory management layer for AI agents using vector similarity search"
 readme = "README.md"
 requires-python = ">=3.13"
+license = "MIT"
+# TODO: Replace with your name and email before publishing
+authors = [{name = "manavnotop", email = "manuagarwal1443@gmail.com"}]
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
-    "bert-score>=0.3.13",
     "dotenv>=0.9.9",
-    "fastapi>=0.121.0",
-    "jinja2>=3.1.4",
-    "nltk>=3.9.1",
-    "numpy>=2.2.1",
     "pydantic>=2.12.4",
     "qdrant-client>=1.15.1",
     "requests>=2.32.3",
-    "rouge-score>=0.1.2",
     "sentence-transformers>=5.1.2",
-    "tiktoken>=0.8.0",
-    "tqdm>=4.67.1",
-    "uvicorn>=0.38.0",
     "tenacity>=8.2.0",
 ]
 
 [dependency-groups]
 dev = [
-    "black>=25.9.0",
     "pytest>=8.3.4",
     "ruff>=0.14.3",
 ]

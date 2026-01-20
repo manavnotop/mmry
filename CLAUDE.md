@@ -16,10 +16,16 @@ Mmry is a memory management system for AI agents that stores, retrieves, and man
 # Code formatting and import sorting
 make fix
 
-# Run tests (starts Docker Qdrant container)
+# Run full test suite (starts/stops Docker Qdrant)
 make test
 
-# Start FastAPI server
+# Run a single test
+uv run pytest test.py::test_function_name
+
+# Run demo (starts/stops Docker Qdrant, runs main.py)
+make run
+
+# Start FastAPI server manually
 uvicorn main:app
 ```
 
@@ -36,19 +42,30 @@ MemoryClient (mmry/client.py)
     └── MemoryManager (mmry/memory_manager.py)
         ├── create_memory() → Summarizer + Merger → Qdrant
         ├── query_memory() → VectorDB search + ContextBuilder + Reranking
-        └── update_memory() / list_all()
+        ├── update_memory() / list_all()
+        └── async variants (create_memory_async, query_memory_async, create_memory_batch_async)
 
 Factory Pattern (mmry/factory.py):
 - LLM providers: LLMFactory.create() - registry pattern with @register_llm
 - Embeddings: EmbeddingFactory.create() - registry pattern with @register_embedding
 - VectorDB: VectorDBFactory.create() - registry pattern with @register_vectordb
+
+Error Hierarchy (mmry/errors.py):
+MmryError
+├── MemoryError (MemoryNotFoundError, MemoryDeleteError, MemoryUpdateError)
+├── LLMError (LLMConnectionError, LLMTimeoutError)
+└── VectorDBError (VectorDBConnectionError)
 ```
 
 ## Key Files
 
 - [mmry/client.py](mmry/client.py) - User-facing API with MemoryConfig or dict
 - [mmry/memory_manager.py](mmry/memory_manager.py) - Core memory orchestration
-- [mmry/factory.py](mmry/factory.py) - Unified registry-based factory for LLM/VectorDB/Embeddings
+- [mmry/factory.py](mmry/factory.py) - Registry-based factory for LLM/VectorDB/Embeddings
+- [mmry/config.py](mmry/config.py) - MemoryConfig, VectorDBConfig, LLMConfig dataclasses
+- [mmry/errors.py](mmry/errors.py) - Custom exception hierarchy
 - [mmry/llms/openrouter_base.py](mmry/llms/openrouter_base.py) - Shared base for LLM implementations
+- [mmry/vector_store/qdrant.py](mmry/vector_store/qdrant.py) - Qdrant implementation
+- [mmry/utils/decay.py](mmry/utils/decay.py) - Memory decay scoring
 - [mmry/utils/text.py](mmry/utils/text.py) - Text utilities (clean_summary)
 - [mmry/utils/datetime.py](mmry/utils/datetime.py) - Datetime utilities (parse_datetime)
